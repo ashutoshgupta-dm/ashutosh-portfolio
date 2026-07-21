@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Menu, 
   X, 
@@ -20,9 +20,9 @@ import {
   GraduationCap, 
   Award, 
   Check, 
+  CheckCircle,
   ChevronRight, 
   ChevronUp, 
-  ChevronDown,
   Download, 
   Megaphone, 
   TrendingUp, 
@@ -32,22 +32,13 @@ import {
   Video, 
   ArrowUpRight, 
   Sparkles, 
-  BookOpen, 
-  CheckCircle,
-  FileText,
-  Camera,
-  Edit,
-  RotateCcw,
-  Plus,
-  Trash,
-  Copy
+  BookOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SKILL_CATEGORIES, EXPERIENCES, PROJECTS, SERVICES, EDUCATION_LIST } from './data';
-import { Project, SkillCategory, SocialLink } from './types';
-import { getAllProjectImages, saveProjectImage, deleteProjectImage } from './lib/db';
+import { SkillCategory } from './types';
 // @ts-ignore
-import ashutoshProfile from './assets/images/ashutosh_profile_1784196365121.jpg';
+import ashutoshProfile from './assets/images/ashutosh_profile_correct.jpg';
 
 // Helper component to map string icon names to Lucide react components
 const IconComponent = ({ name, className }: { name: string; className?: string }) => {
@@ -70,50 +61,6 @@ export default function App() {
   const [activeSection, setActiveSection] = useState('home');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
-
-  // Projects list (initialized with defaults or customized data)
-  const [projectsList, setProjectsList] = useState<Project[]>(PROJECTS);
-
-  // Load custom projects and images on mount (read-only persistence)
-  useEffect(() => {
-    async function loadCustomProjects() {
-      try {
-        const savedProjects = localStorage.getItem('ashutosh_custom_projects');
-        if (savedProjects) {
-          setProjectsList(JSON.parse(savedProjects));
-        } else {
-          // Fallback: check if there are custom project images from the previous session to migrate
-          const customImages = await getAllProjectImages();
-          if (Object.keys(customImages).length > 0) {
-            const migratedProjects = PROJECTS.map(p => {
-              if (customImages[p.id]) {
-                return { ...p, imageUrl: customImages[p.id] };
-              }
-              return p;
-            });
-            setProjectsList(migratedProjects);
-            localStorage.setItem('ashutosh_custom_projects', JSON.stringify(migratedProjects));
-          } else {
-            setProjectsList(PROJECTS);
-          }
-        }
-      } catch (e) {
-        console.error('Failed to load projects from storage:', e);
-        setProjectsList(PROJECTS);
-      }
-    }
-    loadCustomProjects();
-  }, []);
-
-  // Profile Photo state (read-only persistence)
-  const [profileImage] = useState<string>(() => {
-    try {
-      const saved = localStorage.getItem('ashutosh_profile_image');
-      return saved || ashutoshProfile;
-    } catch (e) {
-      return ashutoshProfile;
-    }
-  });
 
   // Form State
   const [formData, setFormData] = useState({
@@ -161,6 +108,12 @@ export default function App() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Read-only project data
+  const projectsList = PROJECTS;
+
+  // Read-only profile photo
+  const profileImage = ashutoshProfile;
+
   // List of all projects directly
   const filteredProjects = projectsList;
 
@@ -169,7 +122,7 @@ export default function App() {
     setMobileMenuOpen(false);
     const element = document.getElementById(sectionId);
     if (element) {
-      const offset = 80; // Offset for sticky navigation bar
+      const offset = 110; // Offset for sticky navigation bar
       const bodyRect = document.body.getBoundingClientRect().top;
       const elementRect = element.getBoundingClientRect().top;
       const elementPosition = elementRect - bodyRect;
@@ -425,13 +378,10 @@ export default function App() {
 
             {/* PROFILE IMAGE CARD */}
             <div className="relative w-32 h-32 mb-6 select-none">
-              <div 
-                id="profile-img-container"
-                className="w-32 h-32 rounded-full shadow-xl ring-4 ring-white/5 relative overflow-hidden"
-              >
-                <img 
-                  src={profileImage} 
-                  alt="Ashutosh Gupta" 
+              <div className="w-32 h-32 rounded-full shadow-xl ring-4 ring-white/5 relative overflow-hidden">
+                <img
+                  src={profileImage}
+                  alt="Ashutosh Gupta"
                   className="w-full h-full object-cover object-center"
                   referrerPolicy="no-referrer"
                 />
@@ -739,7 +689,7 @@ export default function App() {
         <div className="max-w-6xl mx-auto px-6">
           
           {/* Section Header */}
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12">
+          <div className="mb-12">
             <div className="flex flex-col space-y-2 text-left">
               <span className="text-xs font-mono text-secondary-cyan tracking-wider font-semibold uppercase">04 / CREATIVE SHOWCASE</span>
               <h2 className="font-heading font-extrabold text-2xl sm:text-3xl text-main-white">Selected Projects</h2>
@@ -760,9 +710,10 @@ export default function App() {
                     <img 
                       src={project.imageUrl} 
                       alt={project.title} 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-80 group-hover:opacity-100"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90 group-hover:opacity-100"
                       referrerPolicy="no-referrer"
                     />
+                    
                   </div>
 
                   {/* Card Body */}
@@ -848,6 +799,7 @@ export default function App() {
                             <ExternalLink size={13} className="opacity-30" />
                           </button>
                         )}
+
                       </div>
                     </div>
                   </div>
@@ -1204,7 +1156,8 @@ export default function App() {
             <ChevronUp size={20} />
           </motion.button>
         )}
-        </AnimatePresence>
+      </AnimatePresence>
+
 
     </div>
   );

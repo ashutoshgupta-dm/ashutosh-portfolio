@@ -4,7 +4,12 @@
  */
 
 import { Project, Experience, Service, Education, SkillCategory } from './types';
-import anandPlasticsLogo from './assets/images/anand_plastics_logo_1784205714289.jpg';
+import anandPlasticsLogo from './assets/images/anand_plastics_cover.jpg';
+import kovarkCover from './assets/images/kovark_cover.jpg';
+import signxpressCover from './assets/images/signxpress_cover.jpg';
+import satnamCover from './assets/images/satnam_cover.jpg';
+import votecCover from './assets/images/votec_cover.jpg';
+import akashCover from './assets/images/akash_blowers_cover.jpg';
 
 export const SKILL_CATEGORIES: SkillCategory[] = [
   {
@@ -99,28 +104,16 @@ export const PROJECTS: Project[] = [
   {
     id: 'proj-anand-plastics',
     title: 'Anand Plastics',
-    subtitle: 'Social Content & SEO Support',
+    subtitle: 'SEO & Social Media',
     category: 'social',
     imageUrl: anandPlasticsLogo,
-    description: 'Delivered end-to-end social media post design, product-focused visual creatives, and Instagram branding support while improving search engine performance on WordPress.',
+    description: 'Anand Plastics, established in 1990, supplies high-quality acrylic, polycarbonate, PVC and other interior and exterior materials. The company is known for durable products, reliable service and customized solutions.',
     role: 'Digital Marketing Executive',
     tools: ['Canva', 'WordPress', 'SEO'],
-    clientBrief: 'The client requested high-impact, product-centric social media layouts to highlight plastic manufacturing specifications alongside a clean WordPress SEO structure to drive search query traffic.',
-    deliverables: [
-      'Custom Instagram grids and product showcase templates',
-      'Optimized WordPress meta tags, image tags, and content placement',
-      'Engaging post descriptions highlighting B2B product features'
-    ],
-    keyActions: [
-      'Researched and integrated key industry search terms into the existing website layout.',
-      'Designed clean product posters prioritizing product durability and usage information.',
-      'Monitored keyword performance to support WordPress content updates.'
-    ],
-    myWorkPoints: [
-      'Designed custom Instagram grids and product showcase templates highlighting manufacturing specifications.',
-      'Optimized WordPress meta tags, header structures, and image alt-tags to improve Google search visibility.',
-      'Drafted engaging post captions and B2B product descriptions to drive user interactions.'
-    ],
+    clientBrief: '',
+    deliverables: [],
+    keyActions: [],
+    myWorkPoints: ['Search Engine Optimization', 'Social Media Optimization'],
     websiteUrl: 'https://anandplastics.com',
     socialLinks: [
       { platform: 'instagram', url: 'https://instagram.com/anandplastics' },
@@ -129,90 +122,57 @@ export const PROJECTS: Project[] = [
   },
   {
     id: 'proj-kovark',
-    title: 'Kovark / A Kovark',
-    subtitle: 'Instagram Page Support & Content Planning',
+    title: 'Kovark',
+    subtitle: 'SEO & Social Media',
     category: 'social',
-    imageUrl: 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=600&h=400&q=80',
-    description: 'Executed active Instagram page support, digital poster design, strategic caption writing, and basic SEO content structure to boost user interactions.',
-    role: 'Social Media Management & Design',
-    tools: ['Canva', 'Content Writing', 'SEO'],
-    clientBrief: 'Kovark needed consistent social brand styling to elevate its Instagram presence. The challenge was aligning caption copy to search trends while maintaining a casual, modern tone.',
-    deliverables: [
-      'Social media poster designs with structured grid layouts',
-      'Targeted keyword-rich captions for search discovery',
-      'Weekly content plans outlining key business offerings'
-    ],
-    keyActions: [
-      'Drafted engaging captions matching the brand voice.',
-      'Sourced aesthetic, brand-focused templates to showcase agency capabilities.',
-      'Applied on-page SEO best practices during the overall content outline phases.'
-    ],
-    myWorkPoints: [
-      'Created custom social media poster designs with structured grid layouts in Canva.',
-      'Drafted targeted, keyword-rich captions and hashtag strategies for search discovery.',
-      'Formulated weekly content plans outlining core agency and business offerings.'
-    ],
+    imageUrl: kovarkCover,
+    description: 'Kovark provides flexible coworking spaces, private offices, and meeting rooms for modern professionals and businesses. It offers reliable facilities, transparent pricing, and a productive work environment.',
+    role: 'Digital Marketing Executive',
+    tools: ['Canva', 'WordPress', 'SEO'],
+    clientBrief: '',
+    deliverables: [],
+    keyActions: [],
+    myWorkPoints: ['Search Engine Optimization', 'Social Media Optimization'],
     websiteUrl: 'https://kovark.com',
     socialLinks: [
       { platform: 'instagram', url: 'https://instagram.com/kovark' },
-      { platform: 'facebook', url: 'https://facebook.com/kovark' }
+      { platform: 'facebook', url: 'https://facebook.com/kovark' },
+      { platform: 'linkedin', url: 'https://linkedin.com/company/kovark' }
     ]
   },
   {
     id: 'proj-signxpress',
-    title: 'SignXpress India',
-    subtitle: 'SEO Articles & Braille Product Posters',
+    title: 'Signxpress India',
+    subtitle: 'SEO & Social Media',
     category: 'seo',
-    imageUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&h=400&q=80',
-    description: 'Designed corporate-grade product posters for Braille and accessibility signs, combined with publishing SEO-friendly informational product articles.',
-    role: 'SEO & Product Design Specialist',
-    tools: ['Canva', 'SEO Content', 'Keyword Research'],
-    clientBrief: 'The objective was to clearly communicate technical features of tactile Braille signage while writing comprehensive, keyword-focused articles explaining regulatory compliance.',
-    deliverables: [
-      'Minimalist accessibility product visual aids',
-      'Deep-dive SEO blogs focusing on signage compliance requirements',
-      'Corporate blue-and-white brand guidelines alignment'
-    ],
-    keyActions: [
-      'Performed initial keyword research to identify high-potential searches around accessible signage.',
-      'Structured technical content clearly to appeal to both property managers and search engines.',
-      'Designed posters visually explaining tactile dots and high-contrast lettering specs.'
-    ],
-    myWorkPoints: [
-      'Designed minimalist accessibility product visual aids and product posters.',
-      'Wrote and published deep-dive SEO-friendly compliance articles around Braille tactile signage guidelines.',
-      'Aligned all marketing collateral with the client\'s corporate blue-and-white brand guidelines.'
-    ],
+    imageUrl: signxpressCover,
+    description: 'Signxpress India provides PU tactile tiles, Braille signage, and road safety products. The company is known for durable, customized, and quality-tested accessibility solutions.',
+    role: 'Digital Marketing Executive',
+    tools: ['Canva', 'WordPress', 'SEO'],
+    clientBrief: '',
+    deliverables: [],
+    keyActions: [],
+    myWorkPoints: ['Social Media Optimization', 'Search Engine Optimization'],
     websiteUrl: 'https://signxpressindia.com',
     socialLinks: [
-      { platform: 'linkedin', url: 'https://linkedin.com/company/signxpress' }
+      { platform: 'facebook', url: 'https://facebook.com/signxpressindia' },
+      { platform: 'instagram', url: 'https://instagram.com/signxpressindia' },
+      { platform: 'youtube', url: 'https://youtube.com/@signxpressindia' }
     ]
   },
   {
     id: 'proj-satnam-overseas',
     title: 'Satnam Overseas',
-    subtitle: 'Premium Product Design & Presentation',
+    subtitle: 'Social Media Design',
     category: 'content',
-    imageUrl: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=600&h=400&q=80',
-    description: 'Developed premium product creatives for eco-friendly non-woven bags, emphasizing feature highlights with brand-consistent corporate styling.',
-    role: 'Creative Post Designer',
-    tools: ['Canva', 'Social Media Design', 'Content Writing'],
-    clientBrief: 'Satnam Overseas requested a series of elegant, professional product posts emphasizing environmental friendliness and durability, maintaining a blue-and-white theme.',
-    deliverables: [
-      'Eco-friendly product post banners and listings templates',
-      'Concise, benefit-driven product copy focusing on eco-benefits',
-      'Consistent, cohesive layout rules for multi-channel posts'
-    ],
-    keyActions: [
-      'Selected specific typography to emphasize brand quality.',
-      'Highlighted technical product specifications (GSM weight, handle durability) within designs.',
-      'Crafted copy outlining bulk procurement opportunities.'
-    ],
-    myWorkPoints: [
-      'Developed eco-friendly product banners and high-converting listing templates.',
-      'Drafted benefit-driven product copy emphasizing non-woven material durability and eco-benefits.',
-      'Established consistent multi-channel design layouts with prominent corporate branding.'
-    ],
+    imageUrl: satnamCover,
+    description: 'Satnam Overseas manufactures and supplies high-quality non-woven shopping and carry bags. Established in 2013, the company is known for durable products, multiple sizes, and customized designs.',
+    role: 'Creative Designer',
+    tools: ['Canva', 'Content Writing'],
+    clientBrief: '',
+    deliverables: [],
+    keyActions: [],
+    myWorkPoints: ['Social Media Post Design', 'Content Creation'],
     websiteUrl: 'https://satnamoverseas.com',
     socialLinks: [
       { platform: 'facebook', url: 'https://facebook.com/satnamoverseas' },
@@ -221,29 +181,17 @@ export const PROJECTS: Project[] = [
   },
   {
     id: 'proj-votec-consulting',
-    title: 'VOTEC Consulting',
-    subtitle: 'Corporate B2B Services Communication',
+    title: 'VOTEC Group',
+    subtitle: 'Business & Technology Consulting',
     category: 'website',
-    imageUrl: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=600&h=400&q=80',
-    description: 'Structured and designed B2B technology consulting service posters highlighting SAP, Oracle, and IBM solutions integration pathways.',
-    role: 'B2B Creative Content Executive',
-    tools: ['Canva', 'B2B Design', 'Content Structuring'],
-    clientBrief: 'The partner needed corporate B2B creatives to present high-end consulting solutions. Complex cloud integration pathways had to be presented clearly and professionaly.',
-    deliverables: [
-      'Service posters mapping SAP and IBM cloud solution benefits',
-      'B2B slide templates for digital outreach',
-      'Structured textual callouts showing corporate problem-solving capabilities'
-    ],
-    keyActions: [
-      'Analyzed corporate service offerings to extract core value propositions.',
-      'Utilized high-contrast typography and precise corporate alignments in Canva.',
-      'Supported general web visibility by arranging structured digital copy.'
-    ],
-    myWorkPoints: [
-      'Structured service posters mapping corporate benefits of SAP, Oracle, and IBM solutions.',
-      'Designed premium B2B slide templates for digital outreach campaigns.',
-      'Arranged structured digital copy and callouts demonstrating partner integration capabilities.'
-    ],
+    imageUrl: votecCover,
+    description: 'VOTEC Group provides business, process, and technology consulting services. The company helps businesses improve productivity, streamline operations, reduce costs, and build effective IT solutions.',
+    role: 'Creative Content Executive',
+    tools: ['Canva', 'Content Writing'],
+    clientBrief: '',
+    deliverables: [],
+    keyActions: [],
+    myWorkPoints: ['Social Media Post Design', 'Content Creation'],
     websiteUrl: 'https://votecconsulting.com',
     socialLinks: [
       { platform: 'linkedin', url: 'https://linkedin.com/company/votecconsulting' },
@@ -252,29 +200,17 @@ export const PROJECTS: Project[] = [
   },
   {
     id: 'proj-akash-blowers',
-    title: 'Akash Blowers',
-    subtitle: 'SEO Optimization & WordPress Management',
+    title: 'AKASH Blowers',
+    subtitle: 'SEO & WordPress',
     category: 'seo',
-    imageUrl: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=600&h=400&q=80',
-    description: 'Improved web visibility and search engine optimization (SEO) for an industrial blower manufacturing business, while optimizing product catalog layouts on WordPress.',
+    imageUrl: akashCover,
+    description: 'AKASH Blowers is a leading manufacturer of industrial blowers and vacuum systems with over 45 years of experience. The company is known for durable products, advanced engineering, reliable service, and high-performance solutions.',
     role: 'SEO & WordPress Executive',
     tools: ['WordPress', 'SEO', 'Canva'],
-    clientBrief: 'Akash Blowers required technical on-page SEO optimization and strategic layout updates on WordPress to rank their heavy industrial blowers higher in B2B search results.',
-    deliverables: [
-      'Keyword-rich product descriptions and technical specification sheets',
-      'Fully optimized meta tags, header tags, and alt-image details',
-      'Custom visual banners designed for heavy-duty industrial blowers'
-    ],
-    keyActions: [
-      'Conducted extensive B2B keyword research for industrial fan and centrifugal blower search terms.',
-      'Revised WordPress page layouts to increase user engagement and inquiries.',
-      'Created and integrated visual product banners matching the corporate blue theme.'
-    ],
-    myWorkPoints: [
-      'Conducted extensive B2B keyword research and optimized product specification descriptions.',
-      'Configured on-page SEO details including meta tags, header tags, and descriptive image alt-text.',
-      'Designed and deployed corporate-branded visual catalog banners for heavy-duty industrial blowers.'
-    ],
+    clientBrief: '',
+    deliverables: [],
+    keyActions: [],
+    myWorkPoints: ['Search Engine Optimization', 'WordPress Management'],
     websiteUrl: 'https://akashblowers.com',
     socialLinks: [
       { platform: 'youtube', url: 'https://youtube.com/@akashblowers' }

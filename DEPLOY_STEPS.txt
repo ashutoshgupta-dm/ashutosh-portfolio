@@ -1,0 +1,16 @@
+FIXED READ-ONLY PORTFOLIO
+
+1. Open your GitHub repository: ashutosh-portfolio
+2. Click Add file > Upload files.
+3. Open this extracted folder and upload all files/folders inside it.
+4. Commit message: Fix portfolio content and remove public editing
+5. Commit directly to the main branch.
+6. Wait 1-3 minutes for Vercel deployment.
+7. Open the live site and press Ctrl + Shift + R.
+
+This version:
+- removes the Edit Projects button and all public editing controls;
+- does not load project/profile data from localStorage;
+- uses the correct profile image shown in the earlier AI Studio preview;
+- uses concise My Work and About the Client details;
+- includes local project cover images so the cards do not change between browsers.
