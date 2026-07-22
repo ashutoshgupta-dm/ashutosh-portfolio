@@ -1,0 +1,21 @@
+FIXES APPLIED
+
+1. Profile image cropping
+- The circular hero profile now uses object-fit: contain.
+- Added internal padding and a dark circular background.
+- Removed hover zoom from the profile image, so hair, face, neck and shoulders stay visible.
+
+2. Public editing protection
+- The public portfolio never renders Edit Projects, image upload, edit, delete or save controls.
+- Removed the visible Admin Portal link from the public footer.
+- Owner editing remains available only by manually opening /admin and authenticating with the authorized owner account.
+- Existing Firestore security rules continue to enforce owner-only writes.
+
+3. Deployment cleanup
+- Removed the stale static_portfolio folder.
+- Removed bun.lock so Vercel can install with npm from package.json.
+- No package-lock.json was added.
+
+Validation
+- All TypeScript and TSX source files passed a syntax transpilation check.
+- A full npm/Vite build could not be run in this environment because external package installation timed out.

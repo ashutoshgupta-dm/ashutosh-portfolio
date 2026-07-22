@@ -54,7 +54,6 @@ import {
   saveProjectsToFirestore, 
   type User 
 } from './lib/firebase';
-import { Lock } from 'lucide-react';
 import { SKILL_CATEGORIES, EXPERIENCES, PROJECTS, SERVICES, EDUCATION_LIST } from './data';
 import { Project, SkillCategory, SocialLink } from './types';
 import { getAllProjectImages, saveProjectImage, deleteProjectImage } from './lib/db';
@@ -102,6 +101,8 @@ export default function App() {
   };
 
   const isOwnerAuthenticated = currentUser?.email?.toLowerCase() === OWNER_EMAIL.toLowerCase();
+  // Editing controls are available only on the private /admin route after owner authentication.
+  // The public portfolio URL never renders edit, upload, save, or delete controls.
   const isEditingAllowed = isOwnerAuthenticated && currentPath === '/admin';
 
   // Navigation & UI States
@@ -944,7 +945,7 @@ export default function App() {
                   role: "button",
                   "aria-label": "Change profile picture",
                 } : {})}
-                className={`w-32 h-32 rounded-full shadow-xl ring-4 ring-white/5 relative overflow-hidden bg-[#07111F] flex items-center justify-center ${
+                className={`w-32 h-32 rounded-full shadow-xl ring-4 ring-white/5 relative overflow-hidden bg-[#07111F] flex items-center justify-center p-2.5 ${
                   isEditingAllowed 
                     ? 'group cursor-pointer hover:ring-secondary-cyan/50 focus:outline-none focus:ring-secondary-cyan transition-all' 
                     : ''
@@ -953,7 +954,7 @@ export default function App() {
                 <img 
                   src={profileImage} 
                   alt="Ashutosh Gupta" 
-                  className="w-full h-full object-contain object-center group-hover:scale-105 transition-transform duration-500"
+                  className="w-full h-full object-contain object-center rounded-full transition-transform duration-500"
                   referrerPolicy="no-referrer"
                 />
 
@@ -1840,7 +1841,6 @@ export default function App() {
             <button onClick={() => handleNavClick('experience')} className="hover:text-secondary-cyan transition-colors cursor-pointer">Experience</button>
             <button onClick={() => handleNavClick('projects')} className="hover:text-secondary-cyan transition-colors cursor-pointer">Projects</button>
             <button onClick={() => handleNavClick('contact')} className="hover:text-secondary-cyan transition-colors cursor-pointer">Contact</button>
-            <button onClick={() => navigateTo('/admin')} className="hover:text-secondary-cyan transition-colors cursor-pointer flex items-center space-x-1 text-secondary-cyan/80 hover:text-secondary-cyan font-mono text-[11px]"><Lock size={11} /><span>Admin Portal</span></button>
           </div>
 
           <div className="text-center md:text-right text-xs text-secondary-text/60">
