@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Menu, 
   X, 
@@ -23,6 +23,7 @@ import {
   CheckCircle,
   ChevronRight, 
   ChevronUp, 
+  ChevronDown,
   Download, 
   Megaphone, 
   TrendingUp, 
@@ -32,13 +33,20 @@ import {
   Video, 
   ArrowUpRight, 
   Sparkles, 
-  BookOpen
+  BookOpen,
+  Camera,
+  Edit,
+  RotateCcw,
+  Plus,
+  Trash,
+  Copy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SKILL_CATEGORIES, EXPERIENCES, PROJECTS, SERVICES, EDUCATION_LIST } from './data';
-import { SkillCategory } from './types';
+import { Project, SkillCategory, SocialLink } from './types';
+import { getAllProjectImages, saveProjectImage, deleteProjectImage } from './lib/db';
 // @ts-ignore
-import ashutoshProfile from './assets/images/ashutosh_profile_correct.jpg';
+import ashutoshProfile from './assets/images/ashutosh_profile_1784196365121.jpg';
 
 // Helper component to map string icon names to Lucide react components
 const IconComponent = ({ name, className }: { name: string; className?: string }) => {
@@ -108,11 +116,436 @@ export default function App() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Read-only project data
-  const projectsList = PROJECTS;
+  // Projects list (initialized with defaults or customized data)
+  const [projectsList, setProjectsList] = useState<Project[]>(PROJECTS);
+  const [isEditMode, setIsEditMode] = useState<boolean>(false);
+  const projectFileInputRef = useRef<HTMLInputElement>(null);
+  const formFileInputRef = useRef<HTMLInputElement>(null);
+  const [activeEditProjectId, setActiveEditProjectId] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [projectImageError, setProjectImageError] = useState<string | null>(null);
 
-  // Read-only profile photo
-  const profileImage = ashutoshProfile;
+  // Advanced Project editing states
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [formTitle, setFormTitle] = useState('');
+  const [formSubtitle, setFormSubtitle] = useState('');
+  const [formCategory, setFormCategory] = useState<'social' | 'seo' | 'website' | 'content'>('social');
+  const [formDescription, setFormDescription] = useState('');
+  const [formRole, setFormRole] = useState('');
+  const [formTools, setFormTools] = useState<string[]>([]);
+  const [toolInput, setToolInput] = useState('');
+  const [formClientBrief, setFormClientBrief] = useState('');
+  const [formKeyActions, setFormKeyActions] = useState<string[]>([]);
+  const [newActionText, setNewActionText] = useState('');
+  const [formDeliverables, setFormDeliverables] = useState<string[]>([]);
+  const [newDeliverableText, setNewDeliverableText] = useState('');
+  const [formResults, setFormResults] = useState('');
+  const [formAdditionalNotes, setFormAdditionalNotes] = useState('');
+  const [formImageUrl, setFormImageUrl] = useState('');
+  const [formMyWorkPoints, setFormMyWorkPoints] = useState<string[]>([]);
+  const [newMyWorkPoint, setNewMyWorkPoint] = useState('');
+  const [formWebsiteUrl, setFormWebsiteUrl] = useState('');
+  const [formSocialLinks, setFormSocialLinks] = useState<SocialLink[]>([]);
+  const [formSuccessMessage, setFormSuccessMessage] = useState<string | null>(null);
+
+  // Export Data Modal states
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [copiedData, setCopiedData] = useState(false);
+
+  // Load custom projects and images on mount
+  useEffect(() => {
+    async function loadCustomProjects() {
+      try {
+        const savedProjects = localStorage.getItem('ashutosh_custom_projects');
+        if (savedProjects) {
+          setProjectsList(JSON.parse(savedProjects));
+        } else {
+          // Fallback: check if there are custom project images from the previous session to migrate
+          const customImages = await getAllProjectImages();
+          if (Object.keys(customImages).length > 0) {
+            const migratedProjects = PROJECTS.map(p => {
+              if (customImages[p.id]) {
+                return { ...p, imageUrl: customImages[p.id] };
+              }
+              return p;
+            });
+            setProjectsList(migratedProjects);
+            localStorage.setItem('ashutosh_custom_projects', JSON.stringify(migratedProjects));
+          } else {
+            setProjectsList(PROJECTS);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load projects from storage:', e);
+        setProjectsList(PROJECTS);
+      }
+    }
+    loadCustomProjects();
+  }, []);
+
+  // Save projects to localStorage and state
+  const saveProjects = (updatedProjects: Project[]) => {
+    setProjectsList(updatedProjects);
+    localStorage.setItem('ashutosh_custom_projects', JSON.stringify(updatedProjects));
+  };
+
+  // Handle click on project image inside cards to trigger file input
+  const handleProjectImageClick = (projectId: string) => {
+    if (!isEditMode) return;
+    setActiveEditProjectId(projectId);
+    if (projectFileInputRef.current) {
+      projectFileInputRef.current.value = '';
+      projectFileInputRef.current.click();
+    }
+  };
+
+  // Handle image file selection
+  const handleProjectImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeEditProjectId) return;
+
+    // Validate type (JPG, JPEG, PNG, WEBP)
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      setProjectImageError('Only JPG, JPEG, PNG and WEBP files are allowed.');
+      setTimeout(() => setProjectImageError(null), 5000);
+      return;
+    }
+
+    // Validate size (< 10 MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setProjectImageError('Image size must be smaller than 10 MB.');
+      setTimeout(() => setProjectImageError(null), 5000);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPreviewImage(reader.result as string);
+      setProjectImageError(null);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Confirm and save project image
+  const handleSaveProjectImage = async () => {
+    if (!activeEditProjectId || !previewImage) return;
+
+    try {
+      await saveProjectImage(activeEditProjectId, previewImage);
+      const updated = projectsList.map(p => {
+        if (p.id === activeEditProjectId) {
+          return { ...p, imageUrl: previewImage };
+        }
+        return p;
+      });
+      saveProjects(updated);
+      // Clean up states
+      setPreviewImage(null);
+      setActiveEditProjectId(null);
+    } catch (err) {
+      console.error('Failed to save project image:', err);
+      setProjectImageError('Failed to save image to database.');
+      setTimeout(() => setProjectImageError(null), 5000);
+    }
+  };
+
+  // Reset to default image (and other data if desired, or just image reset)
+  const handleResetProjectImage = async (projectId: string) => {
+    try {
+      await deleteProjectImage(projectId);
+      const originalProject = PROJECTS.find(p => p.id === projectId);
+      if (originalProject) {
+        const updated = projectsList.map(p => {
+          if (p.id === projectId) {
+            return { ...p, imageUrl: originalProject.imageUrl };
+          }
+          return p;
+        });
+        saveProjects(updated);
+      }
+    } catch (err) {
+      console.error('Failed to delete project image:', err);
+    }
+  };
+
+  // Setup form with project values to edit
+  const handleEditCaseStudy = (project: Project) => {
+    setEditingProject(project);
+    setFormTitle(project.title);
+    setFormSubtitle(project.subtitle);
+    setFormCategory(project.category);
+    setFormDescription(project.description);
+    setFormRole(project.role);
+    setFormTools([...project.tools]);
+    setToolInput('');
+    setFormClientBrief(project.clientBrief);
+    setFormKeyActions([...project.keyActions]);
+    setNewActionText('');
+    setFormDeliverables([...project.deliverables]);
+    setNewDeliverableText('');
+    setFormResults(project.results || '');
+    setFormAdditionalNotes(project.additionalNotes || '');
+    setFormImageUrl(project.imageUrl);
+    setFormMyWorkPoints([...(project.myWorkPoints || [])]);
+    setNewMyWorkPoint('');
+    setFormWebsiteUrl(project.websiteUrl || '');
+    setFormSocialLinks(project.socialLinks ? [...project.socialLinks] : []);
+    setFormSuccessMessage(null);
+  };
+
+  // Add a new tool to list
+  const handleAddTool = () => {
+    const trimmed = toolInput.trim();
+    if (trimmed && !formTools.includes(trimmed)) {
+      setFormTools([...formTools, trimmed]);
+      setToolInput('');
+    }
+  };
+
+  // Remove tool from list
+  const handleRemoveTool = (tool: string) => {
+    setFormTools(formTools.filter(t => t !== tool));
+  };
+
+  // Add a Key Action
+  const handleAddKeyAction = () => {
+    const trimmed = newActionText.trim();
+    if (trimmed) {
+      setFormKeyActions([...formKeyActions, trimmed]);
+      setNewActionText('');
+    }
+  };
+
+  // Delete a Key Action
+  const handleDeleteKeyAction = (index: number) => {
+    setFormKeyActions(formKeyActions.filter((_, i) => i !== index));
+  };
+
+  // Move a Key Action up or down
+  const handleMoveKeyAction = (index: number, direction: 'up' | 'down') => {
+    const newList = [...formKeyActions];
+    if (direction === 'up' && index > 0) {
+      const temp = newList[index];
+      newList[index] = newList[index - 1];
+      newList[index - 1] = temp;
+    } else if (direction === 'down' && index < newList.length - 1) {
+      const temp = newList[index];
+      newList[index] = newList[index + 1];
+      newList[index + 1] = temp;
+    }
+    setFormKeyActions(newList);
+  };
+
+  // Add a Deliverable
+  const handleAddDeliverable = () => {
+    const trimmed = newDeliverableText.trim();
+    if (trimmed) {
+      setFormDeliverables([...formDeliverables, trimmed]);
+      setNewDeliverableText('');
+    }
+  };
+
+  // Delete a Deliverable
+  const handleDeleteDeliverable = (index: number) => {
+    setFormDeliverables(formDeliverables.filter((_, i) => i !== index));
+  };
+
+  // Move a Deliverable up or down
+  const handleMoveDeliverable = (index: number, direction: 'up' | 'down') => {
+    const newList = [...formDeliverables];
+    if (direction === 'up' && index > 0) {
+      const temp = newList[index];
+      newList[index] = newList[index - 1];
+      newList[index - 1] = temp;
+    } else if (direction === 'down' && index < newList.length - 1) {
+      const temp = newList[index];
+      newList[index] = newList[index + 1];
+      newList[index + 1] = temp;
+    }
+    setFormDeliverables(newList);
+  };
+
+  // Reset form to template default values
+  const handleResetFormToDefault = () => {
+    if (!editingProject) return;
+    const original = PROJECTS.find(p => p.id === editingProject.id);
+    if (original) {
+      setFormTitle(original.title);
+      setFormSubtitle(original.subtitle);
+      setFormCategory(original.category);
+      setFormDescription(original.description);
+      setFormRole(original.role);
+      setFormTools([...original.tools]);
+      setFormClientBrief(original.clientBrief);
+      setFormKeyActions([...original.keyActions]);
+      setFormDeliverables([...original.deliverables]);
+      setFormResults(original.results || '');
+      setFormAdditionalNotes(original.additionalNotes || '');
+      setFormImageUrl(original.imageUrl);
+      setFormMyWorkPoints([...(original.myWorkPoints || [])]);
+      setFormWebsiteUrl(original.websiteUrl || '');
+      setFormSocialLinks(original.socialLinks ? [...original.socialLinks] : []);
+      setFormSuccessMessage('Reset to default template values.');
+      setTimeout(() => setFormSuccessMessage(null), 2000);
+    }
+  };
+
+  // Trigger form image select
+  const handleFormImageClick = () => {
+    if (formFileInputRef.current) {
+      formFileInputRef.current.value = '';
+      formFileInputRef.current.click();
+    }
+  };
+
+  // Handle form image file selection
+  const handleFormImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      setProjectImageError('Only JPG, JPEG, PNG and WEBP files are allowed.');
+      setTimeout(() => setProjectImageError(null), 5000);
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setProjectImageError('Image size must be smaller than 10 MB.');
+      setTimeout(() => setProjectImageError(null), 5000);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setFormImageUrl(reader.result as string);
+      setProjectImageError(null);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Save full edits
+  const handleSaveFormChanges = async () => {
+    if (!editingProject) return;
+
+    const updatedProjects = projectsList.map(p => {
+      if (p.id === editingProject.id) {
+        return {
+          ...p,
+          title: formTitle,
+          subtitle: formSubtitle,
+          category: formCategory,
+          description: formDescription,
+          role: formRole,
+          tools: formTools,
+          clientBrief: formClientBrief,
+          keyActions: formKeyActions,
+          deliverables: formDeliverables,
+          results: formResults,
+          additionalNotes: formAdditionalNotes,
+          imageUrl: formImageUrl,
+          myWorkPoints: formMyWorkPoints,
+          websiteUrl: formWebsiteUrl,
+          socialLinks: formSocialLinks
+        };
+      }
+      return p;
+    });
+
+    saveProjects(updatedProjects);
+
+    if (formImageUrl.startsWith('data:image')) {
+      try {
+        await saveProjectImage(editingProject.id, formImageUrl);
+      } catch (err) {
+        console.error('Failed to sync image to IndexedDB:', err);
+      }
+    }
+
+    setFormSuccessMessage('Changes saved successfully!');
+    setTimeout(() => {
+      setFormSuccessMessage(null);
+      setEditingProject(null);
+    }, 1500);
+  };
+
+  // Reset a specific project fully to its default
+  const handleResetProjectToDefault = async (projectId: string) => {
+    try {
+      await deleteProjectImage(projectId);
+      const originalProject = PROJECTS.find(p => p.id === projectId);
+      if (originalProject) {
+        const updated = projectsList.map(p => {
+          if (p.id === projectId) {
+            return { ...originalProject };
+          }
+          return p;
+        });
+        saveProjects(updated);
+      }
+    } catch (err) {
+      console.error('Failed to reset project to default:', err);
+    }
+  };
+
+  // Profile Photo state and file handler
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [profileImage, setProfileImage] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('ashutosh_profile_image');
+      return saved || ashutoshProfile;
+    } catch (e) {
+      return ashutoshProfile;
+    }
+  });
+  const [photoError, setPhotoError] = useState<string | null>(null);
+
+  const handlePhotoClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate type (JPG, JPEG, PNG, WEBP)
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      setPhotoError('Only JPG, JPEG, PNG and WEBP files are allowed.');
+      setTimeout(() => setPhotoError(null), 5000);
+      return;
+    }
+
+    // Validate size (< 5 MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setPhotoError('Image size must be smaller than 5 MB.');
+      setTimeout(() => setPhotoError(null), 5000);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      setProfileImage(base64String);
+      setPhotoError(null);
+      try {
+        localStorage.setItem('ashutosh_profile_image', base64String);
+      } catch (err) {
+        console.warn('Failed to save image to localStorage: ', err);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handlePhotoKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handlePhotoClick();
+    }
+  };
 
   // List of all projects directly
   const filteredProjects = projectsList;
@@ -122,7 +555,7 @@ export default function App() {
     setMobileMenuOpen(false);
     const element = document.getElementById(sectionId);
     if (element) {
-      const offset = 110; // Offset for sticky navigation bar
+      const offset = 80; // Offset for sticky navigation bar
       const bodyRect = document.body.getBoundingClientRect().top;
       const elementRect = element.getBoundingClientRect().top;
       const elementPosition = elementRect - bodyRect;
@@ -378,14 +811,43 @@ export default function App() {
 
             {/* PROFILE IMAGE CARD */}
             <div className="relative w-32 h-32 mb-6 select-none">
-              <div className="w-32 h-32 rounded-full shadow-xl ring-4 ring-white/5 relative overflow-hidden">
-                <img
-                  src={profileImage}
-                  alt="Ashutosh Gupta"
-                  className="w-full h-full object-cover object-center"
+              <div 
+                id="profile-img-container"
+                onClick={handlePhotoClick}
+                onKeyDown={handlePhotoKeyDown}
+                tabIndex={0}
+                role="button"
+                aria-label="Change profile picture"
+                className="w-32 h-32 rounded-full shadow-xl ring-4 ring-white/5 relative overflow-hidden group cursor-pointer hover:ring-secondary-cyan/50 focus:outline-none focus:ring-secondary-cyan transition-all bg-[#07111F] flex items-center justify-center"
+              >
+                <img 
+                  src={profileImage} 
+                  alt="Ashutosh Gupta" 
+                  className="w-full h-full object-contain object-center group-hover:scale-105 transition-transform duration-500"
                   referrerPolicy="no-referrer"
                 />
+
+                {/* Camera icon hover overlay */}
+                <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  <Camera size={18} className="text-secondary-cyan" />
+                  <span className="text-[9px] font-sans font-bold text-main-white uppercase tracking-wider">Change Photo</span>
+                </div>
               </div>
+
+              {/* Hidden file input */}
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handlePhotoChange} 
+                accept=".jpg,.jpeg,.png,.webp" 
+                className="hidden" 
+              />
+
+              {photoError && (
+                <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 w-full max-w-[280px] bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] py-1 px-2.5 rounded text-center z-20">
+                  {photoError}
+                </div>
+              )}
             </div>
 
             {/* Profile Info */}
@@ -689,13 +1151,72 @@ export default function App() {
         <div className="max-w-6xl mx-auto px-6">
           
           {/* Section Header */}
-          <div className="mb-12">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12">
             <div className="flex flex-col space-y-2 text-left">
               <span className="text-xs font-mono text-secondary-cyan tracking-wider font-semibold uppercase">04 / CREATIVE SHOWCASE</span>
               <h2 className="font-heading font-extrabold text-2xl sm:text-3xl text-main-white">Selected Projects</h2>
               <div className="w-12 h-[2px] bg-gradient-primary mt-2" />
+              {projectImageError && (
+                <div className="mt-2 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg py-1.5 px-3 block max-w-sm">
+                  {projectImageError}
+                </div>
+              )}
+            </div>
+
+            {/* Project Edit & Admin Controls */}
+            <div className="flex flex-wrap items-center gap-2.5 self-start md:self-end">
+              <button
+                onClick={() => setIsEditMode(!isEditMode)}
+                className={`px-3.5 py-2 rounded-lg font-sans text-xs font-semibold tracking-wide transition-all border cursor-pointer flex items-center space-x-1.5 ${
+                  isEditMode 
+                    ? 'bg-green-500/10 text-green-400 border-green-500/30 hover:bg-green-500/20 font-bold' 
+                    : 'bg-primary-blue/10 text-secondary-cyan border-primary-blue/25 hover:bg-primary-blue/20'
+                }`}
+                title={isEditMode ? "Exit Edit Mode" : "Edit project details and case studies"}
+              >
+                {isEditMode ? (
+                  <>
+                    <CheckCircle size={13} className="text-green-400" />
+                    <span>Done Editing</span>
+                  </>
+                ) : (
+                  <>
+                    <Edit size={13} className="text-secondary-cyan" />
+                    <span>Edit Projects</span>
+                  </>
+                )}
+              </button>
+
+              {isEditMode && (
+                <button
+                  onClick={() => setShowExportModal(true)}
+                  className="px-3.5 py-2 rounded-lg font-sans text-xs font-semibold tracking-wide bg-gradient-primary text-primary-bg hover:shadow-[0_0_15px_rgba(0,180,216,0.3)] transition-all cursor-pointer flex items-center space-x-1.5"
+                  title="Export updated project data as JSON"
+                >
+                  <Download size={13} />
+                  <span>Export Updated Project Data</span>
+                </button>
+              )}
             </div>
           </div>
+
+          {/* Hidden File Input for Project Image editing */}
+          <input 
+            type="file"
+            ref={projectFileInputRef}
+            onChange={handleProjectImageSelect}
+            accept=".jpg,.jpeg,.png,.webp"
+            className="hidden"
+          />
+
+          {/* Hidden File Input for Case Study Form Image editing */}
+          <input 
+            type="file"
+            ref={formFileInputRef}
+            onChange={handleFormImageSelect}
+            accept=".jpg,.jpeg,.png,.webp"
+            className="hidden"
+          />
 
           {/* Project Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -710,10 +1231,42 @@ export default function App() {
                     <img 
                       src={project.imageUrl} 
                       alt={project.title} 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90 group-hover:opacity-100"
+                      className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-80 group-hover:opacity-100 ${
+                        isEditMode ? 'cursor-pointer' : ''
+                      }`}
+                      onClick={() => handleProjectImageClick(project.id)}
                       referrerPolicy="no-referrer"
                     />
                     
+                    {/* Category Label Overlay */}
+                    <div className="absolute top-3 left-3 bg-[#07111F]/80 backdrop-blur-md border border-white/5 px-2.5 py-1 rounded text-[10px] font-mono text-secondary-cyan tracking-wider uppercase">
+                      {project.category}
+                    </div>
+
+                    {/* EDIT IMAGE HOVER OVERLAY */}
+                    {isEditMode && (
+                      <div 
+                        onClick={() => handleProjectImageClick(project.id)}
+                        className="absolute inset-0 bg-black/65 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Camera size={20} className="text-secondary-cyan" />
+                        <span className="text-[10px] font-sans font-bold text-main-white tracking-wider uppercase">Change Cover Image</span>
+                      </div>
+                    )}
+
+                    {/* Reset Image button (only visible in edit mode) */}
+                    {isEditMode && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleResetProjectImage(project.id);
+                        }}
+                        className="absolute bottom-3 right-3 p-1.5 rounded bg-red-500/10 hover:bg-red-500/25 border border-red-500/20 hover:border-red-500/45 text-red-400 transition-all z-10 cursor-pointer"
+                        title="Reset to default image"
+                      >
+                        <RotateCcw size={12} />
+                      </button>
+                    )}
                   </div>
 
                   {/* Card Body */}
@@ -800,6 +1353,25 @@ export default function App() {
                           </button>
                         )}
 
+                        {/* EDIT CASE STUDY ACTION BUTTON (Visible in Edit Mode) */}
+                        {isEditMode && (
+                          <div className="flex items-center gap-2 mt-1">
+                            <button
+                              onClick={() => handleEditCaseStudy(project)}
+                              className="flex-grow py-2.5 rounded-lg bg-primary-blue/10 hover:bg-primary-blue/20 text-secondary-cyan border border-primary-blue/25 hover:border-primary-blue/40 font-sans font-bold text-xs tracking-wide transition-all cursor-pointer flex items-center justify-center space-x-1.5"
+                            >
+                              <Edit size={12} />
+                              <span>Edit Case Study</span>
+                            </button>
+                            <button
+                              onClick={() => handleResetProjectToDefault(project.id)}
+                              className="p-2.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/25 hover:border-red-500/40 font-sans transition-all cursor-pointer"
+                              title="Reset all details to default template values"
+                            >
+                              <RotateCcw size={12} />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1158,6 +1730,582 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {/* PROJECT IMAGE PREVIEW MODAL */}
+      <AnimatePresence>
+        {previewImage && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+            
+            {/* Modal Backdrop */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setPreviewImage(null);
+                setActiveEditProjectId(null);
+              }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+
+            {/* Modal Body Card */}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-md bg-[#0D1B2A] border border-white/10 rounded-2xl shadow-2xl p-6 sm:p-8 z-10 overflow-hidden"
+            >
+              <h3 className="font-heading font-extrabold text-xl text-main-white mb-2 text-left">
+                Preview New Project Image
+              </h3>
+              <p className="font-sans text-xs text-secondary-text mb-6 text-left">
+                Review the uploaded image. It will use a cover aspect ratio to ensure it stays uniform and beautiful inside the project card.
+              </p>
+
+              {/* Aspect Ratio Box to match actual project card layout */}
+              <div className="relative aspect-video w-full rounded-xl overflow-hidden border border-white/10 bg-primary-bg mb-6">
+                <img 
+                  src={previewImage} 
+                  alt="New Project Preview" 
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute top-3 left-3 bg-[#07111F]/80 backdrop-blur-md border border-white/5 px-2.5 py-1 rounded text-[10px] font-mono text-secondary-cyan tracking-wider uppercase">
+                  {projectsList.find(p => p.id === activeEditProjectId)?.category || 'PREVIEW'}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-3 justify-end">
+                <button
+                  onClick={() => {
+                    setPreviewImage(null);
+                    setActiveEditProjectId(null);
+                  }}
+                  className="px-4 py-2.5 rounded-lg border border-white/10 text-secondary-text hover:text-white hover:bg-white/5 font-sans font-semibold text-xs tracking-wide transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveProjectImage}
+                  className="px-5 py-2.5 rounded-lg bg-gradient-primary text-primary-bg font-sans font-bold text-xs tracking-wide hover:shadow-[0_0_15px_rgba(0,180,216,0.3)] transition-all cursor-pointer"
+                >
+                  Save Image
+                </button>
+              </div>
+
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ADVANCED CASE STUDY EDITOR MODAL */}
+      <AnimatePresence>
+        {editingProject && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setEditingProject(null)}
+              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40"
+            />
+
+            {/* Modal Content */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-3xl bg-[#0D1B2A] border border-white/10 rounded-2xl shadow-2xl p-6 md:p-8 z-50 overflow-y-auto max-h-[90vh]"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-6">
+                <div>
+                  <h3 className="font-heading font-extrabold text-xl text-main-white">
+                    Edit Case Study: {editingProject.title}
+                  </h3>
+                  <p className="font-sans text-xs text-secondary-text mt-1">
+                    Customize client details, work highlights, and links for this campaign.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setEditingProject(null)}
+                  className="p-1.5 rounded-lg border border-white/5 text-secondary-text hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {formSuccessMessage && (
+                <div className="mb-6 p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-semibold text-center animate-pulse">
+                  {formSuccessMessage}
+                </div>
+              )}
+
+              {/* Form Body */}
+              <div className="space-y-6 text-left font-sans text-sm">
+                
+                {/* Row 1: Title and Category */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-secondary-cyan uppercase">Client / Brand Name *</label>
+                    <input
+                      type="text"
+                      value={formTitle}
+                      onChange={(e) => setFormTitle(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-lg bg-primary-bg border border-white/10 text-main-white focus:border-secondary-cyan focus:outline-none transition-colors"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-secondary-cyan uppercase">Category *</label>
+                    <select
+                      value={formCategory}
+                      onChange={(e) => setFormCategory(e.target.value as any)}
+                      className="w-full px-4 py-2.5 rounded-lg bg-primary-bg border border-white/10 text-main-white focus:border-secondary-cyan focus:outline-none transition-colors"
+                    >
+                      <option value="social">Social Media Marketing</option>
+                      <option value="seo">SEO & Content Marketing</option>
+                      <option value="website">Website Optimization</option>
+                      <option value="content">Content Strategy</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Row 2: Subtitle / Tagline and Role */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-secondary-cyan uppercase">Campaign Subtitle / Tagline</label>
+                    <input
+                      type="text"
+                      value={formSubtitle}
+                      onChange={(e) => setFormSubtitle(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-lg bg-primary-bg border border-white/10 text-main-white focus:border-secondary-cyan focus:outline-none transition-colors"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-secondary-cyan uppercase">Your Marketing Role</label>
+                    <input
+                      type="text"
+                      value={formRole}
+                      onChange={(e) => setFormRole(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-lg bg-primary-bg border border-white/10 text-main-white focus:border-secondary-cyan focus:outline-none transition-colors"
+                    />
+                  </div>
+                </div>
+
+                {/* Cover Image Upload Preview */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-secondary-cyan uppercase">Project Cover Image</label>
+                  <div className="flex flex-col sm:flex-row items-center gap-4 p-4 border border-white/5 rounded-xl bg-primary-bg/50">
+                    <div className="relative aspect-video w-36 rounded-lg overflow-hidden border border-white/10 bg-primary-bg flex-shrink-0">
+                      <img src={formImageUrl} alt="Project cover preview" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex-grow text-center sm:text-left space-y-2">
+                      <p className="text-xs text-secondary-text">
+                        Cover images will automatically use cover aspect ratios to stay beautiful in cards.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleFormImageClick}
+                        className="px-3.5 py-1.5 rounded bg-primary-blue/10 border border-primary-blue/25 text-secondary-cyan hover:bg-primary-blue/20 text-xs font-bold transition-all cursor-pointer flex items-center space-x-1"
+                      >
+                        <Camera size={12} />
+                        <span>Upload New Photo</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* About the Client Description */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-secondary-cyan uppercase">About the Client / Description *</label>
+                  <textarea
+                    value={formDescription}
+                    onChange={(e) => setFormDescription(e.target.value)}
+                    rows={3}
+                    placeholder="Briefly describe the client's business, brand context, and background..."
+                    className="w-full px-4 py-2.5 rounded-lg bg-primary-bg border border-white/10 text-main-white focus:border-secondary-cyan focus:outline-none transition-colors resize-none"
+                  />
+                </div>
+
+                {/* Client Brief */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-secondary-cyan uppercase">Client Brief & Marketing Goals</label>
+                  <textarea
+                    value={formClientBrief}
+                    onChange={(e) => setFormClientBrief(e.target.value)}
+                    rows={2}
+                    placeholder="What objectives did the client give you at the start of the campaign?"
+                    className="w-full px-4 py-2.5 rounded-lg bg-primary-bg border border-white/10 text-main-white focus:border-secondary-cyan focus:outline-none transition-colors resize-none"
+                  />
+                </div>
+
+                {/* My Work Points (Interactive List) */}
+                <div className="space-y-2.5">
+                  <label className="block text-xs font-bold text-secondary-cyan uppercase">My Work Points (Key Deliverables/Contributions)</label>
+                  <div className="space-y-2 max-h-40 overflow-y-auto border border-white/5 p-3 rounded-lg bg-primary-bg/30">
+                    {formMyWorkPoints.map((point, index) => (
+                      <div key={index} className="flex items-center justify-between gap-3 bg-[#112438]/55 p-2 rounded-md border border-white/5">
+                        <span className="text-xs text-main-white">{point}</span>
+                        <button
+                          type="button"
+                          onClick={() => setFormMyWorkPoints(formMyWorkPoints.filter((_, i) => i !== index))}
+                          className="p-1 rounded text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors cursor-pointer flex-shrink-0"
+                        >
+                          <Trash size={12} />
+                        </button>
+                      </div>
+                    ))}
+                    {formMyWorkPoints.length === 0 && (
+                      <p className="text-xs text-secondary-text/50 italic text-center py-2">No work points added yet.</p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="e.g., Designed calendar and content strategies targeting Tier-1 and Tier-2 users"
+                      value={newMyWorkPoint}
+                      onChange={(e) => setNewMyWorkPoint(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const val = newMyWorkPoint.trim();
+                          if (val) {
+                            setFormMyWorkPoints([...formMyWorkPoints, val]);
+                            setNewMyWorkPoint('');
+                          }
+                        }
+                      }}
+                      className="flex-grow px-4 py-2 rounded-lg bg-primary-bg border border-white/10 text-main-white text-xs focus:border-secondary-cyan focus:outline-none transition-colors"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const val = newMyWorkPoint.trim();
+                        if (val) {
+                          setFormMyWorkPoints([...formMyWorkPoints, val]);
+                          setNewMyWorkPoint('');
+                        }
+                      }}
+                      className="px-4 py-2 bg-gradient-primary text-primary-bg font-sans font-bold text-xs rounded-lg hover:shadow-[0_0_10px_rgba(0,180,216,0.2)] transition-all cursor-pointer flex items-center gap-1"
+                    >
+                      <Plus size={12} />
+                      <span>Add</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Campaign Key Actions (Interactive Reorderable List) */}
+                <div className="space-y-2.5">
+                  <label className="block text-xs font-bold text-secondary-cyan uppercase">Key Actions (Methodology & Implementation)</label>
+                  <div className="space-y-2 max-h-40 overflow-y-auto border border-white/5 p-3 rounded-lg bg-primary-bg/30">
+                    {formKeyActions.map((action, index) => (
+                      <div key={index} className="flex items-center justify-between gap-3 bg-[#112438]/55 p-2 rounded-md border border-white/5">
+                        <span className="text-xs text-main-white">{action}</span>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleMoveKeyAction(index, 'up')}
+                            disabled={index === 0}
+                            className="p-1 rounded text-secondary-cyan hover:bg-[#112438] disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
+                          >
+                            <ChevronUp size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleMoveKeyAction(index, 'down')}
+                            disabled={index === formKeyActions.length - 1}
+                            className="p-1 rounded text-secondary-cyan hover:bg-[#112438] disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
+                          >
+                            <ChevronDown size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteKeyAction(index)}
+                            className="p-1 rounded text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors cursor-pointer"
+                          >
+                            <Trash size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {formKeyActions.length === 0 && (
+                      <p className="text-xs text-secondary-text/50 italic text-center py-2">No key actions added yet.</p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="e.g., Created customized templates with specific branding color palettes"
+                      value={newActionText}
+                      onChange={(e) => setNewActionText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddKeyAction();
+                        }
+                      }}
+                      className="flex-grow px-4 py-2 rounded-lg bg-primary-bg border border-white/10 text-main-white text-xs focus:border-secondary-cyan focus:outline-none transition-colors"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddKeyAction}
+                      className="px-4 py-2 bg-gradient-primary text-primary-bg font-sans font-bold text-xs rounded-lg hover:shadow-[0_0_10px_rgba(0,180,216,0.2)] transition-all cursor-pointer flex items-center gap-1"
+                    >
+                      <Plus size={12} />
+                      <span>Add</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Deliverables (Interactive Reorderable List) */}
+                <div className="space-y-2.5">
+                  <label className="block text-xs font-bold text-secondary-cyan uppercase">Assets Produced & Deliverables</label>
+                  <div className="space-y-2 max-h-40 overflow-y-auto border border-white/5 p-3 rounded-lg bg-primary-bg/30">
+                    {formDeliverables.map((del, index) => (
+                      <div key={index} className="flex items-center justify-between gap-3 bg-[#112438]/55 p-2 rounded-md border border-white/5">
+                        <span className="text-xs text-main-white">{del}</span>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleMoveDeliverable(index, 'up')}
+                            disabled={index === 0}
+                            className="p-1 rounded text-secondary-cyan hover:bg-[#112438] disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
+                          >
+                            <ChevronUp size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleMoveDeliverable(index, 'down')}
+                            disabled={index === formDeliverables.length - 1}
+                            className="p-1 rounded text-secondary-cyan hover:bg-[#112438] disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
+                          >
+                            <ChevronDown size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteDeliverable(index)}
+                            className="p-1 rounded text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors cursor-pointer"
+                          >
+                            <Trash size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {formDeliverables.length === 0 && (
+                      <p className="text-xs text-secondary-text/50 italic text-center py-2">No deliverables added yet.</p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="e.g., 25+ Customizable social grid templates"
+                      value={newDeliverableText}
+                      onChange={(e) => setNewDeliverableText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddDeliverable();
+                        }
+                      }}
+                      className="flex-grow px-4 py-2 rounded-lg bg-primary-bg border border-white/10 text-main-white text-xs focus:border-secondary-cyan focus:outline-none transition-colors"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddDeliverable}
+                      className="px-4 py-2 bg-gradient-primary text-primary-bg font-sans font-bold text-xs rounded-lg hover:shadow-[0_0_10px_rgba(0,180,216,0.2)] transition-all cursor-pointer flex items-center gap-1"
+                    >
+                      <Plus size={12} />
+                      <span>Add</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Campaign Results */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-secondary-cyan uppercase">Campaign Results & Impact Metrics</label>
+                  <textarea
+                    value={formResults}
+                    onChange={(e) => setFormResults(e.target.value)}
+                    rows={2}
+                    placeholder="e.g., 400% organic impressions surge, 3.5% CTR lift, and robust engagement..."
+                    className="w-full px-4 py-2.5 rounded-lg bg-primary-bg border border-white/10 text-main-white focus:border-secondary-cyan focus:outline-none transition-colors resize-none"
+                  />
+                </div>
+
+                {/* Website URL */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-secondary-cyan uppercase">Website URL</label>
+                  <input
+                    type="text"
+                    value={formWebsiteUrl}
+                    onChange={(e) => setFormWebsiteUrl(e.target.value)}
+                    placeholder="e.g., www.anandplastics.com"
+                    className="w-full px-4 py-2.5 rounded-lg bg-primary-bg border border-white/10 text-main-white focus:border-secondary-cyan focus:outline-none transition-colors"
+                  />
+                </div>
+
+                {/* Social Links Editing */}
+                <div className="space-y-2.5">
+                  <label className="block text-xs font-bold text-secondary-cyan uppercase">Social Links</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 border border-white/5 rounded-xl bg-primary-bg/50">
+                    {['linkedin', 'instagram', 'youtube', 'facebook', 'twitter'].map((platform) => {
+                      const existingLink = formSocialLinks.find(l => l.platform === platform);
+                      return (
+                        <div key={platform} className="space-y-1">
+                          <span className="text-[10px] font-bold text-secondary-text uppercase tracking-wider block">{platform}</span>
+                          <input
+                            type="text"
+                            placeholder={`${platform}.com/brand`}
+                            value={existingLink ? existingLink.url : ''}
+                            onChange={(e) => {
+                              const val = e.target.value.trim();
+                              let updated = [...formSocialLinks];
+                              if (val) {
+                                const exists = updated.some(l => l.platform === platform);
+                                if (exists) {
+                                  updated = updated.map(l => l.platform === platform ? { ...l, url: val } : l);
+                                } else {
+                                  updated.push({ platform: platform as any, url: val });
+                                }
+                              } else {
+                                updated = updated.filter(l => l.platform !== platform);
+                              }
+                              setFormSocialLinks(updated);
+                            }}
+                            className="w-full px-3 py-1.5 rounded bg-primary-bg border border-white/10 text-xs text-main-white focus:border-secondary-cyan focus:outline-none transition-colors"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Footer Controls */}
+              <div className="flex flex-col sm:flex-row items-center gap-3 justify-between border-t border-white/5 pt-6 mt-8">
+                <button
+                  type="button"
+                  onClick={handleResetFormToDefault}
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-lg border border-red-500/20 hover:border-red-500/45 text-red-400 hover:bg-red-500/5 font-sans font-semibold text-xs tracking-wide transition-all cursor-pointer flex items-center justify-center space-x-1.5"
+                >
+                  <RotateCcw size={12} />
+                  <span>Reset to Defaults</span>
+                </button>
+
+                <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setEditingProject(null)}
+                    className="w-1/2 sm:w-auto px-4 py-2.5 rounded-lg border border-white/10 text-secondary-text hover:text-white hover:bg-white/5 font-sans font-semibold text-xs tracking-wide transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveFormChanges}
+                    className="w-1/2 sm:w-auto px-5 py-2.5 rounded-lg bg-gradient-primary text-primary-bg font-sans font-extrabold text-xs tracking-wide hover:shadow-[0_0_15px_rgba(0,180,216,0.3)] transition-all cursor-pointer"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* EXPORT DATA MODAL */}
+      <AnimatePresence>
+        {showExportModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setShowExportModal(false);
+                setCopiedData(false);
+              }}
+              className="fixed inset-0 bg-black/85 backdrop-blur-sm z-40"
+            />
+
+            {/* Modal body */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-2xl bg-[#0D1B2A] border border-white/10 rounded-2xl shadow-2xl p-6 md:p-8 z-50 flex flex-col max-h-[85vh] text-left"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-4">
+                <div>
+                  <h3 className="font-heading font-extrabold text-lg text-main-white">Export Case Study Data</h3>
+                  <p className="font-sans text-xs text-secondary-text mt-0.5">
+                    Copy this updated array and paste it into <span className="font-mono text-secondary-cyan text-[11px]">src/data.ts</span> to make your changes permanent.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowExportModal(false);
+                    setCopiedData(false);
+                  }}
+                  className="p-1.5 rounded-lg border border-white/5 text-secondary-text hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* JSON Container */}
+              <div className="flex-grow overflow-y-auto mb-6 bg-primary-bg/80 border border-white/5 rounded-xl p-4 font-mono text-[10px] text-gray-300 leading-normal select-text scrollbar-thin">
+                <pre>{JSON.stringify(projectsList, null, 2)}</pre>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex items-center justify-between gap-4 pt-4 border-t border-white/5">
+                <span className="text-[10px] text-secondary-text leading-tight max-w-[65%]">
+                  Note: Project images are stored in full base64 format so they load offline without loss.
+                </span>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      setShowExportModal(false);
+                      setCopiedData(false);
+                    }}
+                    className="px-4 py-2 rounded-lg border border-white/10 text-secondary-text hover:text-white hover:bg-white/5 font-sans font-semibold text-xs transition-all cursor-pointer"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(JSON.stringify(projectsList, null, 2));
+                      setCopiedData(true);
+                      setTimeout(() => setCopiedData(false), 2500);
+                    }}
+                    className="px-5 py-2 rounded-lg bg-gradient-primary text-primary-bg font-sans font-extrabold text-xs transition-all flex items-center space-x-1 hover:shadow-[0_0_15px_rgba(0,180,216,0.3)] cursor-pointer"
+                  >
+                    {copiedData ? (
+                      <>
+                        <Check size={12} />
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={12} />
+                        <span>Copy JSON</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   );
