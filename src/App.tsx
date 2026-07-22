@@ -42,6 +42,19 @@ import {
   Copy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { AdminLogin } from './components/AdminLogin';
+import { 
+  auth, 
+  OWNER_EMAIL, 
+  onAuthStateChanged, 
+  signOut, 
+  getProfileFromFirestore, 
+  saveProfileToFirestore, 
+  getStoredProjectsFromFirestore, 
+  saveProjectsToFirestore, 
+  type User 
+} from './lib/firebase';
+import { Lock } from 'lucide-react';
 import { SKILL_CATEGORIES, EXPERIENCES, PROJECTS, SERVICES, EDUCATION_LIST } from './data';
 import { Project, SkillCategory, SocialLink } from './types';
 import { getAllProjectImages, saveProjectImage, deleteProjectImage } from './lib/db';
@@ -65,6 +78,32 @@ const IconComponent = ({ name, className }: { name: string; className?: string }
 };
 
 export default function App() {
+  // Router & Auth States
+  const [currentPath, setCurrentPath] = useState<string>(window.location.pathname);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const handlePopState = () => setCurrentPath(window.location.pathname);
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const navigateTo = (path: string) => {
+    window.history.pushState({}, '', path);
+    setCurrentPath(path);
+    window.scrollTo(0, 0);
+  };
+
+  const isOwnerAuthenticated = currentUser?.email?.toLowerCase() === OWNER_EMAIL.toLowerCase();
+  const isEditingAllowed = isOwnerAuthenticated && currentPath === '/admin';
+
   // Navigation & UI States
   const [activeSection, setActiveSection] = useState('home');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -152,15 +191,42 @@ export default function App() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [copiedData, setCopiedData] = useState(false);
 
-  // Load custom projects and images on mount
+  // Load custom projects and profile from Firestore / LocalStorage on mount
   useEffect(() => {
-    async function loadCustomProjects() {
+    async function loadCustomProjectsAndProfile() {
+      // 1. Try Firestore profile image first
+      try {
+        const remoteProfile = await getProfileFromFirestore();
+        if (remoteProfile?.profileImage) {
+          setProfileImage(remoteProfile.profileImage);
+          localStorage.setItem('ashutosh_profile_image', remoteProfile.profileImage);
+        }
+      } catch (err) {
+        console.warn('Failed to fetch profile from Firestore:', err);
+      }
+
+      // 2. Try Firestore projects first
+      try {
+        const remoteProjects = await getStoredProjectsFromFirestore();
+        if (remoteProjects && remoteProjects.length > 0) {
+          const merged = PROJECTS.map(p => {
+            const rp = remoteProjects.find((item: any) => item.id === p.id);
+            return rp ? { ...p, ...rp } : p;
+          });
+          setProjectsList(merged);
+          localStorage.setItem('ashutosh_custom_projects', JSON.stringify(merged));
+          return;
+        }
+      } catch (err) {
+        console.warn('Failed to fetch projects from Firestore:', err);
+      }
+
+      // Fallback to localStorage / default static data
       try {
         const savedProjects = localStorage.getItem('ashutosh_custom_projects');
         if (savedProjects) {
           setProjectsList(JSON.parse(savedProjects));
         } else {
-          // Fallback: check if there are custom project images from the previous session to migrate
           const customImages = await getAllProjectImages();
           if (Object.keys(customImages).length > 0) {
             const migratedProjects = PROJECTS.map(p => {
@@ -180,13 +246,25 @@ export default function App() {
         setProjectsList(PROJECTS);
       }
     }
-    loadCustomProjects();
+
+    loadCustomProjectsAndProfile();
   }, []);
 
-  // Save projects to localStorage and state
-  const saveProjects = (updatedProjects: Project[]) => {
+  // Save projects to Firestore, localStorage and state
+  const saveProjects = async (updatedProjects: Project[]) => {
     setProjectsList(updatedProjects);
-    localStorage.setItem('ashutosh_custom_projects', JSON.stringify(updatedProjects));
+    try {
+      localStorage.setItem('ashutosh_custom_projects', JSON.stringify(updatedProjects));
+    } catch (e) {
+      console.warn('LocalStorage save error:', e);
+    }
+    if (isOwnerAuthenticated) {
+      try {
+        await saveProjectsToFirestore(updatedProjects);
+      } catch (e) {
+        console.error('Firestore save projects error:', e);
+      }
+    }
   };
 
   // Handle click on project image inside cards to trigger file input
@@ -511,6 +589,12 @@ export default function App() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!isEditingAllowed) {
+      setPhotoError('Editing profile photo is restricted to owner at /admin');
+      setTimeout(() => setPhotoError(null), 5000);
+      return;
+    }
+
     // Validate type (JPG, JPEG, PNG, WEBP)
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
@@ -527,7 +611,7 @@ export default function App() {
     }
 
     const reader = new FileReader();
-    reader.onloadend = () => {
+    reader.onloadend = async () => {
       const base64String = reader.result as string;
       setProfileImage(base64String);
       setPhotoError(null);
@@ -535,6 +619,11 @@ export default function App() {
         localStorage.setItem('ashutosh_profile_image', base64String);
       } catch (err) {
         console.warn('Failed to save image to localStorage: ', err);
+      }
+      try {
+        await saveProfileToFirestore({ profileImage: base64String });
+      } catch (err) {
+        console.error('Failed to save profile photo to Firestore:', err);
       }
     };
     reader.readAsDataURL(file);
@@ -618,9 +707,44 @@ export default function App() {
     }, 1200);
   };
 
+  if (currentPath === '/admin' && !isOwnerAuthenticated) {
+    return (
+      <AdminLogin 
+        currentUser={currentUser} 
+        onBackToPortfolio={() => navigateTo('/')} 
+        onSignOut={() => signOut(auth)} 
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen selection:bg-primary-blue/30 selection:text-secondary-cyan relative bg-primary-bg overflow-x-hidden">
       
+      {/* Admin Workspace Banner Bar */}
+      {isOwnerAuthenticated && currentPath === '/admin' && (
+        <div className="bg-gradient-to-r from-primary-blue/30 via-[#0D1B2A] to-secondary-cyan/20 border-b border-secondary-cyan/30 py-2.5 px-6 sticky top-0 z-50 flex flex-wrap items-center justify-between gap-3 shadow-xl backdrop-blur-md">
+          <div className="flex items-center space-x-2 text-xs font-sans text-main-white">
+            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+            <span className="font-bold text-secondary-cyan">Admin Workspace:</span>
+            <span className="font-mono opacity-90">{currentUser?.email}</span>
+          </div>
+          <div className="flex items-center space-x-4">
+            <button 
+              onClick={() => navigateTo('/')}
+              className="text-xs font-sans text-secondary-text hover:text-white underline cursor-pointer"
+            >
+              View Public Site (Read-Only)
+            </button>
+            <button 
+              onClick={() => signOut(auth)}
+              className="px-3 py-1 rounded-md bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs font-sans font-bold border border-red-500/30 transition-colors cursor-pointer"
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Background radial glow spots */}
       <div className="absolute top-[10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary-blue/10 blur-[150px] pointer-events-none" />
       <div className="absolute top-[40%] right-[-10%] w-[600px] h-[600px] rounded-full bg-secondary-cyan/5 blur-[180px] pointer-events-none" />
@@ -813,12 +937,18 @@ export default function App() {
             <div className="relative w-32 h-32 mb-6 select-none">
               <div 
                 id="profile-img-container"
-                onClick={handlePhotoClick}
-                onKeyDown={handlePhotoKeyDown}
-                tabIndex={0}
-                role="button"
-                aria-label="Change profile picture"
-                className="w-32 h-32 rounded-full shadow-xl ring-4 ring-white/5 relative overflow-hidden group cursor-pointer hover:ring-secondary-cyan/50 focus:outline-none focus:ring-secondary-cyan transition-all bg-[#07111F] flex items-center justify-center"
+                {...(isEditingAllowed ? {
+                  onClick: handlePhotoClick,
+                  onKeyDown: handlePhotoKeyDown,
+                  tabIndex: 0,
+                  role: "button",
+                  "aria-label": "Change profile picture",
+                } : {})}
+                className={`w-32 h-32 rounded-full shadow-xl ring-4 ring-white/5 relative overflow-hidden bg-[#07111F] flex items-center justify-center ${
+                  isEditingAllowed 
+                    ? 'group cursor-pointer hover:ring-secondary-cyan/50 focus:outline-none focus:ring-secondary-cyan transition-all' 
+                    : ''
+                }`}
               >
                 <img 
                   src={profileImage} 
@@ -827,21 +957,25 @@ export default function App() {
                   referrerPolicy="no-referrer"
                 />
 
-                {/* Camera icon hover overlay */}
-                <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <Camera size={18} className="text-secondary-cyan" />
-                  <span className="text-[9px] font-sans font-bold text-main-white uppercase tracking-wider">Change Photo</span>
-                </div>
+                {/* Camera icon hover overlay (visible only in editing mode) */}
+                {isEditingAllowed && (
+                  <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <Camera size={18} className="text-secondary-cyan" />
+                    <span className="text-[9px] font-sans font-bold text-main-white uppercase tracking-wider">Change Photo</span>
+                  </div>
+                )}
               </div>
 
               {/* Hidden file input */}
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handlePhotoChange} 
-                accept=".jpg,.jpeg,.png,.webp" 
-                className="hidden" 
-              />
+              {isEditingAllowed && (
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handlePhotoChange} 
+                  accept=".jpg,.jpeg,.png,.webp" 
+                  className="hidden" 
+                />
+              )}
 
               {photoError && (
                 <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 w-full max-w-[280px] bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] py-1 px-2.5 rounded text-center z-20">
@@ -1164,40 +1298,42 @@ export default function App() {
             </div>
 
             {/* Project Edit & Admin Controls */}
-            <div className="flex flex-wrap items-center gap-2.5 self-start md:self-end">
-              <button
-                onClick={() => setIsEditMode(!isEditMode)}
-                className={`px-3.5 py-2 rounded-lg font-sans text-xs font-semibold tracking-wide transition-all border cursor-pointer flex items-center space-x-1.5 ${
-                  isEditMode 
-                    ? 'bg-green-500/10 text-green-400 border-green-500/30 hover:bg-green-500/20 font-bold' 
-                    : 'bg-primary-blue/10 text-secondary-cyan border-primary-blue/25 hover:bg-primary-blue/20'
-                }`}
-                title={isEditMode ? "Exit Edit Mode" : "Edit project details and case studies"}
-              >
-                {isEditMode ? (
-                  <>
-                    <CheckCircle size={13} className="text-green-400" />
-                    <span>Done Editing</span>
-                  </>
-                ) : (
-                  <>
-                    <Edit size={13} className="text-secondary-cyan" />
-                    <span>Edit Projects</span>
-                  </>
-                )}
-              </button>
-
-              {isEditMode && (
+            {isEditingAllowed && (
+              <div className="flex flex-wrap items-center gap-2.5 self-start md:self-end">
                 <button
-                  onClick={() => setShowExportModal(true)}
-                  className="px-3.5 py-2 rounded-lg font-sans text-xs font-semibold tracking-wide bg-gradient-primary text-primary-bg hover:shadow-[0_0_15px_rgba(0,180,216,0.3)] transition-all cursor-pointer flex items-center space-x-1.5"
-                  title="Export updated project data as JSON"
+                  onClick={() => setIsEditMode(!isEditMode)}
+                  className={`px-3.5 py-2 rounded-lg font-sans text-xs font-semibold tracking-wide transition-all border cursor-pointer flex items-center space-x-1.5 ${
+                    isEditMode 
+                      ? 'bg-green-500/10 text-green-400 border-green-500/30 hover:bg-green-500/20 font-bold' 
+                      : 'bg-primary-blue/10 text-secondary-cyan border-primary-blue/25 hover:bg-primary-blue/20'
+                  }`}
+                  title={isEditMode ? "Exit Edit Mode" : "Edit project details and case studies"}
                 >
-                  <Download size={13} />
-                  <span>Export Updated Project Data</span>
+                  {isEditMode ? (
+                    <>
+                      <CheckCircle size={13} className="text-green-400" />
+                      <span>Done Editing</span>
+                    </>
+                  ) : (
+                    <>
+                      <Edit size={13} className="text-secondary-cyan" />
+                      <span>Edit Projects</span>
+                    </>
+                  )}
                 </button>
-              )}
-            </div>
+
+                {isEditMode && (
+                  <button
+                    onClick={() => setShowExportModal(true)}
+                    className="px-3.5 py-2 rounded-lg font-sans text-xs font-semibold tracking-wide bg-gradient-primary text-primary-bg hover:shadow-[0_0_15px_rgba(0,180,216,0.3)] transition-all cursor-pointer flex items-center space-x-1.5"
+                    title="Export updated project data as JSON"
+                  >
+                    <Download size={13} />
+                    <span>Export Updated Project Data</span>
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Hidden File Input for Project Image editing */}
@@ -1704,6 +1840,7 @@ export default function App() {
             <button onClick={() => handleNavClick('experience')} className="hover:text-secondary-cyan transition-colors cursor-pointer">Experience</button>
             <button onClick={() => handleNavClick('projects')} className="hover:text-secondary-cyan transition-colors cursor-pointer">Projects</button>
             <button onClick={() => handleNavClick('contact')} className="hover:text-secondary-cyan transition-colors cursor-pointer">Contact</button>
+            <button onClick={() => navigateTo('/admin')} className="hover:text-secondary-cyan transition-colors cursor-pointer flex items-center space-x-1 text-secondary-cyan/80 hover:text-secondary-cyan font-mono text-[11px]"><Lock size={11} /><span>Admin Portal</span></button>
           </div>
 
           <div className="text-center md:text-right text-xs text-secondary-text/60">
