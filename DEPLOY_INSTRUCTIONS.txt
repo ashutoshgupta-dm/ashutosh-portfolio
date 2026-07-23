@@ -1,0 +1,26 @@
+FINAL CLEAN PORTFOLIO DEPLOYMENT
+
+This version is read-only and contains the content/images visible in the supplied Google AI Studio export.
+It contains no Firebase, admin login, Edit Projects button, localStorage, IndexedDB, bun.lock, package-lock.json, or static_portfolio duplicate.
+
+SAFEST METHOD: CREATE A NEW GITHUB REPOSITORY
+
+1. Extract this ZIP.
+2. On GitHub, create a new PUBLIC repository named: ashutosh-portfolio-final
+3. Keep README OFF, .gitignore None, License None.
+4. Click Add file > Upload files.
+5. Upload every file/folder INSIDE the extracted folder (do not upload the ZIP itself).
+6. Commit message: Publish final read-only portfolio
+7. In Vercel, click Add New > Project and import ashutosh-portfolio-final.
+8. Use these settings:
+   Framework Preset: Vite
+   Root Directory: ./
+   Build Command: npm run build
+   Output Directory: dist
+   Install Command: npm install
+9. Click Deploy.
+10. When status is Ready, open the production URL and press Ctrl+Shift+R.
+
+IMPORTANT
+- Share only the permanent production domain shown under Domains.
+- Do not upload old Firebase files, firestore.rules, bun.lock, package-lock.json, static_portfolio, or old src files into this new repository.
