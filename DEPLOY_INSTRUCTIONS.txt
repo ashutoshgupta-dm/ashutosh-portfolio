@@ -24,3 +24,10 @@ SAFEST METHOD: CREATE A NEW GITHUB REPOSITORY
 IMPORTANT
 - Share only the permanent production domain shown under Domains.
 - Do not upload old Firebase files, firestore.rules, bun.lock, package-lock.json, static_portfolio, or old src files into this new repository.
+
+ADMIN PANEL
+-----------
+After deployment, open: https://YOUR-DOMAIN.vercel.app/admin
+The public portfolio does not show an admin/edit button.
+
+Important limitation: this is a static browser-based admin panel. Saved edits are stored in localStorage, so they appear only in the same browser/device. Use Export JSON for a backup. To publish edits for every visitor, permanently update the source code and redeploy, or connect a backend database.

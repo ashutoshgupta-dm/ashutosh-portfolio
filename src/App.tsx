@@ -4,6 +4,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import AdminPanel from './AdminPanel';
+import { loadPortfolioContent, type PortfolioContent } from './adminContent';
 import { 
   Menu, 
   X, 
@@ -35,10 +37,8 @@ import {
   BookOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { SKILL_CATEGORIES, EXPERIENCES, PROJECTS, SERVICES, EDUCATION_LIST } from './data';
+import { SKILL_CATEGORIES, EXPERIENCES, SERVICES, EDUCATION_LIST } from './data';
 import { SkillCategory } from './types';
-// @ts-ignore
-import ashutoshProfile from './assets/images/ashutosh_profile_correct.jpg';
 
 // Helper component to map string icon names to Lucide react components
 const IconComponent = ({ name, className }: { name: string; className?: string }) => {
@@ -56,7 +56,7 @@ const IconComponent = ({ name, className }: { name: string; className?: string }
   }
 };
 
-export default function App() {
+function PortfolioApp() {
   // Navigation & UI States
   const [activeSection, setActiveSection] = useState('home');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -108,13 +108,20 @@ export default function App() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Read-only project data
-  const projectsList = PROJECTS;
+  const [portfolioContent, setPortfolioContent] = useState<PortfolioContent>(() => loadPortfolioContent());
 
-  // Read-only profile photo
-  const profileImage = ashutoshProfile;
+  useEffect(() => {
+    const refreshContent = () => setPortfolioContent(loadPortfolioContent());
+    window.addEventListener('storage', refreshContent);
+    window.addEventListener('portfolio-content-updated', refreshContent);
+    return () => {
+      window.removeEventListener('storage', refreshContent);
+      window.removeEventListener('portfolio-content-updated', refreshContent);
+    };
+  }, []);
 
-  // List of all projects directly
+  const projectsList = portfolioContent.projects;
+  const profileImage = portfolioContent.profileImage;
   const filteredProjects = projectsList;
 
   // Smooth scroll handler
@@ -389,11 +396,11 @@ export default function App() {
             </div>
 
             {/* Profile Info */}
-            <h2 className="font-heading font-bold text-xl text-main-white leading-tight">Ashutosh Gupta</h2>
-            <p className="font-sans text-xs text-secondary-cyan tracking-wider font-semibold uppercase mt-1">Digital Marketing Executive</p>
+            <h2 className="font-heading font-bold text-xl text-main-white leading-tight">{portfolioContent.profileName}</h2>
+            <p className="font-sans text-xs text-secondary-cyan tracking-wider font-semibold uppercase mt-1">{portfolioContent.profileRole}</p>
             <p className="font-sans text-xs text-secondary-text mt-3 flex items-center space-x-1 justify-center">
               <MapPin size={12} className="text-primary-blue" />
-              <span>New Delhi, India</span>
+              <span>{portfolioContent.profileLocation}</span>
             </p>
 
             {/* Stats row inside card */}
@@ -1161,4 +1168,9 @@ export default function App() {
 
     </div>
   );
+}
+
+export default function App() {
+  const isAdminRoute = window.location.pathname.replace(/\/+$/, '') === '/admin';
+  return isAdminRoute ? <AdminPanel /> : <PortfolioApp />;
 }
